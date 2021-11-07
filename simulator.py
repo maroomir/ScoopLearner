@@ -27,10 +27,18 @@ class Simulator(gym.Env):
         self.target_scoop = self.source.sum() / source_count
         # Bring-up the other parameters
         self.verbose = verbose
-        self.step_count = 0
-        self.episode_count = 0
         self.cmd_count = self.source.shape[1] - self.tool.shape[1]
+        self.step_count = 0
+        self.min_step_count = 1000
+        self.episode_count = 0
+        self.container_count = 0
         self.done = False
+        # Construct the spaces to command size [ex> source=10, scoop=4, command = 10-4]
+        obs_size = self.source.shape[1]  # Observation Size is same the command size
+        action_size = 1  # Action is only ONE Scoop
+        # Box is contained "float" because of the normalization issue under the INTEGER (in td3.py module)
+        self.observation_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(obs_size,), dtype=numpy.float32)
+        self.action_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(action_size,), dtype=numpy.float32)
 
     # Called at the beginning of each episode
     def reset(self):
@@ -42,7 +50,7 @@ class Simulator(gym.Env):
         self.cup_weight = 0
         self.done = False
         self.episode_count += 1
-        return self._get_obs()
+        return self._obs()
 
     # Adjust the gravity at the source
     def __gravity(self):
@@ -61,7 +69,11 @@ class Simulator(gym.Env):
     # Replace the source
     def __replace(self):
         if self.verbose:
-            print("replace the ice-cream")
+            print(
+                "==> Replace container{}(weight={})-> {}(weight={})".format(self.container_count, self.pipeline.sum(),
+                                                                            self.container_count + 1,
+                                                                            self.source.sum()))
+        self.container_count += 1
         return self.source.copy()
 
     # Calculate the candidate points
@@ -83,19 +95,26 @@ class Simulator(gym.Env):
                     verifiers.append(False)
         return candidates, verifiers
 
-    def _get_obs(self):
-        return self.pipeline
+    def _obs(self):
+        # Output the remained ice-cream weight
+        weights = self.pipeline.sum(axis=0)
+        return weights
 
-    def _get_reward(self, epsilon=0.5):
+    def _reward(self,
+                scoop,
+                epsilon=0.5):
         # Put the ice cream close to target weight as few times as possible
         if self.done:
+            if self.min_step_count > self.step_count:
+                self.min_step_count = self.step_count
             weight_score = self.target_weight / (self.cup_weight - self.target_weight + epsilon)
-            time_score = - (2 ** self.step_count)
+            time_score = 0
+            # time_score = - self.target_scoop * (self.step_count - self.min_step_count) ** 2
             return weight_score + time_score
         else:
-            return self.cup_weight / self.step_count - self.target_scoop
+            return abs((self.target_scoop - scoop) * self.step_count) * (-1 if scoop < self.target_scoop else +1)
 
-    def _get_info(self):
+    def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
 
     def step(self, action: list):
@@ -103,13 +122,14 @@ class Simulator(gym.Env):
         source_height, source_width = self.pipeline.shape
         # Get a position from the action command
         assert source_width != 0 and source_height != 0
-        pos_candidates, is_verifiers = self.inspect()
-        x, y = pos_candidates[action[0]]
+        pos_candidates, _ = self.inspect()
+        x, y = pos_candidates[int(action)]
         assert x + tool_width <= source_width and y + tool_height <= source_height
         # Scoop the ice-cream
         scoop = self.pipeline[y:y + tool_height, x:x + tool_width] * self.tool
         # Measure the weight of scoop
-        self.cup_weight += scoop.sum()
+        scoop_weight = scoop.sum()
+        self.cup_weight += scoop_weight
         # Remove the ice-cream as the scoop
         self.pipeline[y:y + tool_height, x:x + tool_width] -= scoop
         self.pipeline = self.__gravity()
@@ -119,12 +139,17 @@ class Simulator(gym.Env):
             self.done = True
             if self.verbose:
                 print(
-                    "cup={}, step=(}, weight={}, reward={}".format(self.episode_count, self.step_count, self.cup_weight,
-                                                                   self._get_reward()))
+                    "cup={}, step={}, weight={}, reward={}".format(self.episode_count, self.step_count,
+                                                                   self.cup_weight, self._reward(scoop_weight))
+                )
+        else:
+            if self.verbose:
+                print("==> pos={}, step={}, weight={}, reward={}".format((x, y), self.step_count, scoop_weight,
+                                                                         self._reward(scoop_weight)))
         # Replace the next source when the previous ice-cream is empty
-        if is_verifiers.count(True) < 1:
+        if self.pipeline.sum() < self.target_weight:
             self.pipeline = self.__replace()
-        return self._get_obs(), self._get_reward(), self.done, self._get_info()
+        return self._obs(), self._reward(scoop_weight), self.done, self._infos()
 
     def show(self):
         colors = matplotlib.pyplot.cm.rainbow
@@ -141,7 +166,7 @@ if __name__ == "__main__":
     target = 40.
     source = './sample/Icecream.csv'
     tool = './sample/Scoop.csv'
-    sim = Simulator(target, source, tool)
+    sim = Simulator(target, source, tool, True)
     count = 100
     print("Ready to the simulator")
     time.sleep(2)
@@ -152,7 +177,9 @@ if __name__ == "__main__":
             action = random.randrange(0, sim.cmd_count + 1)
             obs, reward, done, info = sim.step([action])
             if done:
+                sim.show()
+                '''
                 print(
                     "cup={}, step={}, weight={}, reward={}".format(i, info['step_count'], info['total_weight'], reward))
-                sim.show()
+                '''
                 break
