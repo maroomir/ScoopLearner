@@ -97,8 +97,9 @@ class Simulator(gym.Env):
 
     def _obs(self):
         # Output the remained ice-cream weight
+        total = self.source.sum(axis=0)
         weights = self.pipeline.sum(axis=0)
-        return weights
+        return total - weights
 
     def _reward(self,
                 scoop,
@@ -108,11 +109,10 @@ class Simulator(gym.Env):
             if self.min_step_count > self.step_count:
                 self.min_step_count = self.step_count
             weight_score = self.target_weight / (self.cup_weight - self.target_weight + epsilon)
-            time_score = 0
-            # time_score = - self.target_scoop * (self.step_count - self.min_step_count) ** 2
+            time_score = - self.target_scoop * (self.step_count - self.min_step_count) ** 2
             return weight_score + time_score
         else:
-            return abs((self.target_scoop - scoop) * self.step_count) * (-1 if scoop < self.target_scoop else +1)
+            return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
 
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
