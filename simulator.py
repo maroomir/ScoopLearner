@@ -4,8 +4,11 @@ import time
 
 import matplotlib.pyplot
 import numpy
+import torch
 from numpy import ndarray
 import gym
+
+from utils.module import LSTM
 
 
 class Simulator(gym.Env):
@@ -39,6 +42,10 @@ class Simulator(gym.Env):
         # Box is contained "float" because of the normalization issue under the INTEGER (in td3.py module)
         self.observation_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(obs_size,), dtype=numpy.float32)
         self.action_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(action_size,), dtype=numpy.float32)
+        # Bring-up the LSTM Module
+        stack_layer = 4
+        self.remained = torch.FloatTensor(self.source.sum(axis=0))
+        self.lstm = LSTM(input_size=obs_size * 2, output_size=obs_size, num_layer=stack_layer)
 
     # Called at the beginning of each episode
     def reset(self):
@@ -97,9 +104,14 @@ class Simulator(gym.Env):
 
     def _obs(self):
         # Output the remained ice-cream weight
-        total = self.source.sum(axis=0)
-        weights = self.pipeline.sum(axis=0)
-        return total - weights
+        self.remained = torch.unsqueeze(self.remained, dim=0)  # Add the batch scale
+        current_weight = torch.FloatTensor(self.pipeline.sum(axis=0))
+        current_weight = torch.unsqueeze(current_weight, dim=0)  # Add the batch scale
+        # Apply the lstm module in state
+        self.remained = torch.stack([self.remained, current_weight], dim=1)
+        self.remained = self.lstm(self.remained)
+        self.remained = torch.squeeze(self.remained)
+        return self.remained.detach().cpu().numpy()
 
     def _reward(self,
                 scoop,
@@ -109,10 +121,12 @@ class Simulator(gym.Env):
             if self.min_step_count > self.step_count:
                 self.min_step_count = self.step_count
             weight_score = self.target_weight / (self.cup_weight - self.target_weight + epsilon)
-            time_score = - self.target_scoop * (self.step_count - self.min_step_count) ** 2
-            return weight_score + time_score
+            time_score = - (self.step_count - self.min_step_count)
         else:
-            return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
+            # return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
+            weight_score = scoop ** 2
+            time_score = - self.step_count
+        return weight_score + time_score
 
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
@@ -123,7 +137,7 @@ class Simulator(gym.Env):
         # Get a position from the action command
         assert source_width != 0 and source_height != 0
         pos_candidates, _ = self.inspect()
-        x, y = pos_candidates[int(action)]
+        x, y = pos_candidates[int(action + 0.5)]
         assert x + tool_width <= source_width and y + tool_height <= source_height
         # Scoop the ice-cream
         scoop = self.pipeline[y:y + tool_height, x:x + tool_width] * self.tool
