@@ -13,7 +13,7 @@ if __name__ == "__main__":
     env = Simulator(target, source, tool, verbose=True)
     model_files = sorted(glob(logDir() + '*_best_model.pkl'))
     model_files.sort(key=lambda var: [int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
-    best_model = "./logs/model.pkl"  # model_files[-1]
+    best_model = model_files[-1]
     model = DDPG.load(best_model)
     test_episode = 100
     for i in range(test_episode):

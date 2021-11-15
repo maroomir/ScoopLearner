@@ -8,7 +8,7 @@ import torch
 from numpy import ndarray
 import gym
 
-from utils.module import LSTM
+from utils.module import StateContainer
 
 
 class Simulator(gym.Env):
@@ -45,7 +45,7 @@ class Simulator(gym.Env):
         # Bring-up the LSTM Module
         stack_layer = 4
         self.remained = torch.FloatTensor(self.source.sum(axis=0))
-        self.lstm = LSTM(input_size=obs_size * 2, output_size=obs_size, num_layer=stack_layer)
+        self.lstm = StateContainer(input_size=obs_size, output_size=obs_size, num_layer=stack_layer)
 
     # Called at the beginning of each episode
     def reset(self):
@@ -113,20 +113,30 @@ class Simulator(gym.Env):
         self.remained = torch.squeeze(self.remained)
         return self.remained.detach().cpu().numpy()
 
-    def _reward(self,
-                scoop,
-                epsilon=0.5):
+    def _reward(self, pos, scoop, max_score=100, epsilon=0.001):
         # Put the ice cream close to target weight as few times as possible
+        def remained_reward():
+            full_h = self.source.shape[0] - self.tool.shape[0]
+            x = pos[1]
+            x = x if x >= 0 else 0
+            return max_score - 1 / (full_h - x + epsilon)
+
+        def weight_reward():
+            target_x = self.target_weight
+            x = self.cup_weight
+            return max_score + 1 / (x - target_x + epsilon)
+
         if self.done:
             if self.min_step_count > self.step_count:
                 self.min_step_count = self.step_count
-            weight_score = self.target_weight / (self.cup_weight - self.target_weight + epsilon)
-            time_score = - (self.step_count - self.min_step_count)
+            weight_score = weight_reward()
+            remained_score = remained_reward()
         else:
             # return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
             weight_score = scoop ** 2
-            time_score = - self.step_count
-        return weight_score + time_score
+            remained_score = remained_reward()
+
+        return weight_score + remained_score
 
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
@@ -148,22 +158,22 @@ class Simulator(gym.Env):
         self.pipeline[y:y + tool_height, x:x + tool_width] -= scoop
         self.pipeline = self.__gravity()
         self.step_count += 1
+        # Replace the next source when the previous ice-cream is empty
+        if self.pipeline.sum() < self.target_weight:
+            self.pipeline = self.__replace()
         # Stop the episode when the cup weight is over than target
         if self.cup_weight >= self.target_weight:
             self.done = True
             if self.verbose:
                 print(
                     "cup={}, step={}, weight={}, reward={}".format(self.episode_count, self.step_count,
-                                                                   self.cup_weight, self._reward(scoop_weight))
+                                                                   self.cup_weight, self._reward((x, y), scoop_weight))
                 )
         else:
             if self.verbose:
                 print("==> pos={}, step={}, weight={}, reward={}".format((x, y), self.step_count, scoop_weight,
-                                                                         self._reward(scoop_weight)))
-        # Replace the next source when the previous ice-cream is empty
-        if self.pipeline.sum() < self.target_weight:
-            self.pipeline = self.__replace()
-        return self._obs(), self._reward(scoop_weight), self.done, self._infos()
+                                                                         self._reward((x, y), scoop_weight)))
+        return self._obs(), self._reward((x, y), scoop_weight), self.done, self._infos()
 
     def show(self):
         colors = matplotlib.pyplot.cm.rainbow
