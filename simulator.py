@@ -147,10 +147,11 @@ class Simulator(gym.Env):
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
 
-    def logger(self, text):
+    def logger(self, text, print_txt=False):
         with open('logs/log.txt', "w") as file:
             file.write(text)
-        print(text)
+        if print_txt:
+            print(text)
 
     def step(self, action: list):
         tool_height, tool_width = self.tool.shape
@@ -178,7 +179,8 @@ class Simulator(gym.Env):
             if self.verbose:
                 self.logger(
                     "cup={}, step={}, weight={}, reward={}".format(self.episode_count, self.step_count,
-                                                                   self.cup_weight, self._reward((x, y), scoop_weight))
+                                                                   self.cup_weight, self._reward((x, y), scoop_weight)),
+                    print_txt=True
                 )
         else:
             if self.verbose:
