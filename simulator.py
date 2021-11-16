@@ -126,17 +126,23 @@ class Simulator(gym.Env):
             x = self.cup_weight
             return max_score + 1 / (x - target_x + epsilon)
 
+        def time_reward():
+            min_x = self.min_step_count
+            x = self.step_count
+            return - (x - min_x) ** 2
+
         if self.done:
             if self.min_step_count > self.step_count:
                 self.min_step_count = self.step_count
             weight_score = weight_reward()
             remained_score = remained_reward()
+            time_score = 0  # time_reward()
         else:
-            # return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
             weight_score = scoop ** 2
             remained_score = remained_reward()
+            time_score = - 0  # self.step_count ** 2
 
-        return weight_score + remained_score
+        return weight_score + remained_score + time_score
 
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
