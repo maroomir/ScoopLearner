@@ -76,7 +76,7 @@ class Simulator(gym.Env):
     # Replace the source
     def __replace(self):
         if self.verbose:
-            print(
+            self.logger(
                 "==> Replace container{}(weight={})-> {}(weight={})".format(self.container_count, self.pipeline.sum(),
                                                                             self.container_count + 1,
                                                                             self.source.sum()))
@@ -126,20 +126,31 @@ class Simulator(gym.Env):
             x = self.cup_weight
             return max_score + 1 / (x - target_x + epsilon)
 
+        def time_reward():
+            min_x = self.min_step_count
+            x = self.step_count
+            return - (x - min_x) ** 2
+
         if self.done:
             if self.min_step_count > self.step_count:
                 self.min_step_count = self.step_count
             weight_score = weight_reward()
             remained_score = remained_reward()
+            time_score = 0  # time_reward()
         else:
-            # return abs((self.target_scoop - scoop) * self.step_count ** 2) * (-1 if scoop < self.target_scoop else +1)
             weight_score = scoop ** 2
             remained_score = remained_reward()
+            time_score = - 0  # self.step_count ** 2
 
-        return weight_score + remained_score
+        return weight_score + remained_score + time_score
 
     def _infos(self):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
+
+    def logger(self, text):
+        with open('logs/log.txt', "w") as file:
+            file.write(text)
+        print(text)
 
     def step(self, action: list):
         tool_height, tool_width = self.tool.shape
@@ -165,14 +176,14 @@ class Simulator(gym.Env):
         if self.cup_weight >= self.target_weight:
             self.done = True
             if self.verbose:
-                print(
+                self.logger(
                     "cup={}, step={}, weight={}, reward={}".format(self.episode_count, self.step_count,
                                                                    self.cup_weight, self._reward((x, y), scoop_weight))
                 )
         else:
             if self.verbose:
-                print("==> pos={}, step={}, weight={}, reward={}".format((x, y), self.step_count, scoop_weight,
-                                                                         self._reward((x, y), scoop_weight)))
+                self.logger("==> pos={}, step={}, weight={}, reward={}".format((x, y), self.step_count, scoop_weight,
+                                                                               self._reward((x, y), scoop_weight)))
         return self._obs(), self._reward((x, y), scoop_weight), self.done, self._infos()
 
     def show(self):
