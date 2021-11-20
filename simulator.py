@@ -129,7 +129,7 @@ class Simulator(gym.Env):
         def time_reward():
             min_x = self.min_step_count
             x = self.step_count
-            return - (x - min_x) ** 2
+            return - (x - min_x)
 
         if self.done:
             if self.min_step_count > self.step_count:
@@ -140,7 +140,7 @@ class Simulator(gym.Env):
         else:
             weight_score = scoop ** 2
             remained_score = remained_reward()
-            time_score = - 0  # self.step_count ** 2
+            time_score = 0  # - self.step_count
 
         return weight_score + remained_score + time_score
 
@@ -148,8 +148,8 @@ class Simulator(gym.Env):
         return {'total_weight': self.cup_weight, 'step_count': self.step_count}
 
     def logger(self, text, print_txt=False):
-        with open('logs/log.txt', "w") as file:
-            file.write(text)
+        with open('logs/log.txt', "a") as file:
+            file.write(text + "\n")
         if print_txt:
             print(text)
 

@@ -20,4 +20,4 @@ if __name__ == "__main__":
     action_noise = OrnsteinUhlenbeckActionNoise(mean=numpy.zeros(actions), sigma=float(0.5) * numpy.ones(actions))
     # construct the model
     model = DDPG(MlpPolicy, env, verbose=1, action_noise=action_noise)
-    model.learn(total_timesteps=250000, log_interval=100, callback=callback)
+    model.learn(total_timesteps=500000, log_interval=100, callback=callback)
