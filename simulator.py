@@ -16,6 +16,8 @@ class Simulator(gym.Env):
                  target: float,
                  src_path: str,
                  tool_path: str,
+                 thresh_step=100,
+                 verify=False,
                  verbose=False):
         # Construct the source and tool
         self.source = numpy.loadtxt(src_path, delimiter=',', dtype=numpy.float32, encoding='utf-8-sig')
@@ -29,7 +31,9 @@ class Simulator(gym.Env):
         source_count = math.ceil(self.source.size / self.tool.sum())
         self.target_scoop = self.source.sum() / source_count
         # Bring-up the other parameters
+        self.verify = verify
         self.verbose = verbose
+        self.thresh_step = thresh_step
         self.cmd_count = self.source.shape[1] - self.tool.shape[1]
         self.step_count = 0
         self.min_step_count = 1000
@@ -48,7 +52,7 @@ class Simulator(gym.Env):
         self.lstm = StateContainer(input_size=obs_size, output_size=obs_size, num_layer=stack_layer)
 
     # Called at the beginning of each episode
-    def reset(self):
+    def reset(self, hard=False):
         assert isinstance(self.source, ndarray)
         if self.verbose:
             print("-------------")
@@ -56,7 +60,12 @@ class Simulator(gym.Env):
         self.step_count = 0
         self.cup_weight = 0
         self.done = False
-        self.episode_count += 1
+        if hard:
+            self.pipeline = self.__replace()
+            self.episode_count = 0
+            self.container_count = 0
+        else:
+            self.episode_count += 1
         return self._obs()
 
     # Adjust the gravity at the source
@@ -170,6 +179,9 @@ class Simulator(gym.Env):
         self.pipeline[y:y + tool_height, x:x + tool_width] -= scoop
         self.pipeline = self.__gravity()
         self.step_count += 1
+        # Escape the step at the network verified
+        if self.verify and self.step_count > self.thresh_step:
+            raise Exception("The divergence of the process")
         # Replace the next source when the previous ice-cream is empty
         if self.pipeline.sum() < self.target_weight:
             self.pipeline = self.__replace()
