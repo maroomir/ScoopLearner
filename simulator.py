@@ -224,7 +224,7 @@ if __name__ == "__main__":
         done = False
         while not done:
             action = random.randrange(0, sim.cmd_count + 1)
-            obs, reward, done, info = sim.step([action])
+            obs, reward, done, info = sim.step(action)
             if done:
                 sim.show()
                 '''
