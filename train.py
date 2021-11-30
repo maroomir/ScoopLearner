@@ -16,6 +16,7 @@ def parse_opt():
     parser.add_argument('--target', type=float, default=40., help='a target for one scoop')
     parser.add_argument('--time-steps', type=int, default=300000, help='total time steps')
     parser.add_argument('--algorithm', type=str, default='DDPG', help='use algorithm (DDPG, PPO, TD3)')
+    parser.add_argument('--lstm', action='store_true', default=False, help='use lstm module at the statement')
     parser.add_argument('--verbose', action='store_true', default=False, help='verbose the tracing')
     opt = parser.parse_args()
     return opt
@@ -26,8 +27,9 @@ def run(source: str,
         target: float,
         time_steps: int,
         algorithm: str,
+        lstm=False,
         verbose=False):
-    env = Simulator(target, source, tool, verbose=verbose)
+    env = Simulator(target, source, tool, lstm=lstm, verbose=verbose)
     env = Monitor(env, logDir(), allow_early_resets=True)
     callback = getBestRewardCallback()
     # the noise objects for DDPG

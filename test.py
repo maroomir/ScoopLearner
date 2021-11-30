@@ -57,6 +57,7 @@ def parse_opt():
     parser.add_argument('--algorithm', type=str, default='DDPG', help='use algorithm (DDPG, PPO, TD3)')
     parser.add_argument('--verify', action='store_true', default=False, help='skip the model varify')
     parser.add_argument('--plot', action='store_true', default=False, help='skip the drawing ice-cream plot')
+    parser.add_argument('--lstm', action='store_true', default=False, help='use lstm module at the statement')
     parser.add_argument('--verbose', action='store_true', default=False, help='verbose the tracing')
     opt = parser.parse_args()
     return opt
@@ -68,12 +69,13 @@ def run(source: str,
         algorithm: str,
         verify=True,
         plot=True,
+        lstm=False,
         verbose=False):
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
-    env = Simulator(target, source, tool, verbose=verbose)
+    env = Simulator(target, source, tool, lstm=lstm, verbose=verbose)
     if verify:
         verified_files = model_verify(env, device, algorithm)
         if len(verified_files) == 0:

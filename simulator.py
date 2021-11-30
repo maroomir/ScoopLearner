@@ -17,6 +17,7 @@ class Simulator(gym.Env):
                  src_path: str,
                  tool_path: str,
                  thresh_step=100,
+                 lstm=True,
                  verify=False,
                  verbose=False):
         # Construct the source and tool
@@ -33,6 +34,7 @@ class Simulator(gym.Env):
         # Bring-up the other parameters
         self.verify = verify
         self.verbose = verbose
+        self.use_lstm = lstm
         self.thresh_step = thresh_step
         self.cmd_count = self.source.shape[1] - self.tool.shape[1]
         self.step_count = 0
@@ -47,9 +49,10 @@ class Simulator(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(obs_size,), dtype=numpy.float32)
         self.action_space = gym.spaces.Box(low=0, high=self.cmd_count, shape=(action_size,), dtype=numpy.float32)
         # Bring-up the LSTM Module
-        stack_layer = 4
-        self.remained = torch.FloatTensor(self.source.sum(axis=0))
-        self.lstm = StateContainer(input_size=obs_size, output_size=obs_size, num_layer=stack_layer)
+        if self.use_lstm:
+            stack_layer = 4
+            self.remained = torch.FloatTensor(self.source.sum(axis=0))
+            self.lstm = StateContainer(input_size=obs_size, output_size=obs_size, num_layer=stack_layer)
 
     # Called at the beginning of each episode
     def reset(self, hard=False):
@@ -112,15 +115,20 @@ class Simulator(gym.Env):
         return candidates, verifiers
 
     def _obs(self):
-        # Output the remained ice-cream weight
-        self.remained = torch.unsqueeze(self.remained, dim=0)  # Add the batch scale
-        current_weight = torch.FloatTensor(self.pipeline.sum(axis=0))
-        current_weight = torch.unsqueeze(current_weight, dim=0)  # Add the batch scale
-        # Apply the lstm module in state
-        self.remained = torch.stack([self.remained, current_weight], dim=1)
-        self.remained = self.lstm(self.remained)
-        self.remained = torch.squeeze(self.remained)
-        return self.remained.detach().cpu().numpy()
+        if self.use_lstm:
+            # Output the remained ice-cream weight
+            self.remained = torch.unsqueeze(self.remained, dim=0)  # Add the batch scale
+            current_weight = torch.FloatTensor(self.pipeline.sum(axis=0))
+            current_weight = torch.unsqueeze(current_weight, dim=0)  # Add the batch scale
+            # Apply the lstm module in state
+            self.remained = torch.stack([self.remained, current_weight], dim=1)
+            self.remained = self.lstm(self.remained)
+            self.remained = torch.squeeze(self.remained)
+            return self.remained.detach().cpu().numpy()
+        else:
+            total = self.source.sum(axis=0)
+            weights = self.pipeline.sum(axis=0)
+            return total - weights
 
     def _reward(self, pos, scoop, max_score=100, epsilon=0.001):
         # Put the ice cream close to target weight as few times as possible
