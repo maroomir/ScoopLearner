@@ -1,5 +1,5 @@
-gym~=0.20.0
-matplotlib~=3.4.3
-stable-baselines3~=1.2.0
-torch~=1.9.1
-numpy~=1.21.2
+stable-baselines3
+gym
+numpy
+matplotlib
+pytorch
