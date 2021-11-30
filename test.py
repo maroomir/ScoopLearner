@@ -55,18 +55,25 @@ def parse_opt():
     parser.add_argument('--tool', type=str, default='./sample/Scoop.csv', help='a scooping tool path')
     parser.add_argument('--target', type=float, default=40., help='a target for one scoop')
     parser.add_argument('--algorithm', type=str, default='DDPG', help='use algorithm (DDPG, PPO, TD3)')
-    parser.add_argument('--skip-verify', action='store_false', default=True, help='skip the model varify')
-    parser.add_argument('--skip-plot', action='store_false', default=True, help='skip the drawing ice-cream plot')
+    parser.add_argument('--verify', action='store_true', default=False, help='skip the model varify')
+    parser.add_argument('--plot', action='store_true', default=False, help='skip the drawing ice-cream plot')
+    parser.add_argument('--verbose', action='store_true', default=False, help='verbose the tracing')
     opt = parser.parse_args()
     return opt
 
 
-def run(source: str, tool: str, target: float, algorithm: str, verify=True, show_plot=True):
+def run(source: str,
+        tool: str,
+        target: float,
+        algorithm: str,
+        verify=True,
+        plot=True,
+        verbose=False):
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
-    env = Simulator(target, source, tool, verbose=False)
+    env = Simulator(target, source, tool, verbose=verbose)
     if verify:
         verified_files = model_verify(env, device, algorithm)
         if len(verified_files) == 0:
@@ -104,7 +111,7 @@ def run(source: str, tool: str, target: float, algorithm: str, verify=True, show
                 print(
                     "cup={}, step={}, weight={}, reward={}".format(i, info['step_count'], info['total_weight'], reward)
                 )
-                if show_plot:
+                if plot:
                     env.show()
 
 

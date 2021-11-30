@@ -16,12 +16,17 @@ def parse_opt():
     parser.add_argument('--target', type=float, default=40., help='a target for one scoop')
     parser.add_argument('--time-steps', type=int, default=300000, help='total time steps')
     parser.add_argument('--algorithm', type=str, default='DDPG', help='use algorithm (DDPG, PPO, TD3)')
-    parser.add_argument('--skip-verbose', action='store_false', default=True, help='skip the tracing')
+    parser.add_argument('--verbose', action='store_true', default=False, help='verbose the tracing')
     opt = parser.parse_args()
     return opt
 
 
-def run(source: str, tool: str, target: float, time_steps: int, algorithm: str, verbose=True):
+def run(source: str,
+        tool: str,
+        target: float,
+        time_steps: int,
+        algorithm: str,
+        verbose=False):
     env = Simulator(target, source, tool, verbose=verbose)
     env = Monitor(env, logDir(), allow_early_resets=True)
     callback = getBestRewardCallback()
