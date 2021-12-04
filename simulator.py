@@ -221,9 +221,9 @@ class Simulator(gym.Env):
 # Test the simulator
 if __name__ == "__main__":
     target = 40.
-    source = './sample/Icecream.csv'
+    source = './sample/plane.csv'
     tool = './sample/Scoop.csv'
-    sim = Simulator(target, source, tool, True)
+    sim = Simulator(target, source, tool, lstm=True, verify=False, verbose=False)
     count = 100
     print("Ready to the simulator")
     time.sleep(2)
@@ -235,8 +235,6 @@ if __name__ == "__main__":
             obs, reward, done, info = sim.step(action)
             if done:
                 sim.show()
-                '''
                 print(
                     "cup={}, step={}, weight={}, reward={}".format(i, info['step_count'], info['total_weight'], reward))
-                '''
                 break

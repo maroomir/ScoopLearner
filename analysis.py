@@ -72,5 +72,5 @@ def show_episode_plot(logs, target: float):
 
 
 if __name__ == "__main__":
-    step_log, episode_log, containers = parse_log("logs/Logs_211201_TD3", verbose=True)
+    step_log, episode_log, containers = parse_log("logs/Logs_211205_PPO", verbose=True)
     show_episode_plot(episode_log, 40.0)
